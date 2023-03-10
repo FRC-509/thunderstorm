@@ -1,0 +1,9 @@
+[package]
+name = "thunderstorm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nt = { git = "https://github.com/first-rust-competition/nt-rs" }
+sdl2 = { version = "0.35.2", features = ["image"] }
+tokio = { version = "1.26.0", features = ["full"] }
