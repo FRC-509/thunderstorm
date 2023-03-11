@@ -1,6 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
 
-// use nt::EntryValue;
 use sdl2::{
     event::Event,
     gfx::primitives::DrawRenderer,
@@ -133,13 +131,13 @@ fn main() {
                 .unwrap_or(0.0);
 
             // SwerveModuleState::optimize()
-            let last_angle = last_angles[module_number];
-            let delta = angle - last_angle;
+            let delta = angle - last_angles[module_number];
 
             if delta > 90.0 {
                 velocity_mps = -velocity_mps;
                 angle += 180.0;
             }
+            last_angles[module_number] = angle;
             
             let location = MODULE_LOCATIONS[module_number];
             // Render the wheel.
@@ -163,7 +161,7 @@ fn main() {
                 )
                 .unwrap();
             if velocity_mps != 0.0_f64 {
-                let mut magnitude = velocity_mps / constants::MAX_SPEED * 100.0;
+                let magnitude = velocity_mps / constants::MAX_SPEED * 100.0;
                 let src_point = Point::new(location.0, location.1).offset(20, 46);
                 let dst_point = src_point.offset(
                     (magnitude * (angle - 90.0).to_radians().cos()).round() as i32,
