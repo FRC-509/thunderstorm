@@ -26,19 +26,20 @@ where
     // let length = (dx * dx + dy * dy).sqrt() as i32;
 
     let arrow_width = 10;
-    let arrow_length = 20;
+    let arrow_length = 10;
     let arrow_tip = Point::new(
-        end.x - (arrow_length as f64 * angle.cos()) as i32,
-        end.y - (arrow_length as f64 * angle.sin()) as i32,
+        end.x + (arrow_length as f64 * angle.cos()) as i32,
+        end.y + (arrow_length as f64 * angle.sin()) as i32,
     );
     let arrow_left = Point::new(
-        arrow_tip.x + (arrow_width as f64 * (angle + std::f64::consts::PI / 6.0).cos()) as i32,
-        arrow_tip.y + (arrow_width as f64 * (angle + std::f64::consts::PI / 6.0).sin()) as i32,
+        arrow_tip.x - (arrow_width as f64 * (angle + std::f64::consts::PI / 6.0).cos()) as i32,
+        arrow_tip.y - (arrow_width as f64 * (angle + std::f64::consts::PI / 6.0).sin()) as i32,
     );
     let arrow_right = Point::new(
-        arrow_tip.x + (arrow_width as f64 * (angle - std::f64::consts::PI / 6.0).cos()) as i32,
-        arrow_tip.y + (arrow_width as f64 * (angle - std::f64::consts::PI / 6.0).sin()) as i32,
+        arrow_tip.x - (arrow_width as f64 * (angle - std::f64::consts::PI / 6.0).cos()) as i32,
+        arrow_tip.y - (arrow_width as f64 * (angle - std::f64::consts::PI / 6.0).sin()) as i32,
     );
+    canvas.set_draw_color(color);
     canvas.draw_line(start, end).unwrap();
     canvas
         .filled_trigon(
@@ -96,7 +97,7 @@ fn main() {
         chassis_image.query().height,
     );
     let chassis_dst = Rect::new(100, 0, chassis_src.width(), chassis_src.height());
-
+    let mut last_angles = [0.0, 0.0, 0.0, 0.0];
     'running: loop {
         // SDL2 Event handler.
         for event in event_pump.poll_iter() {
@@ -117,19 +118,29 @@ fn main() {
             .copy(&chassis_image, chassis_src, chassis_dst)
             .unwrap();
         for module_number in 0..4 {
-            // Get the steer angle and velocity for the wheel.
-            let angle = 360.0 - inst
+            // Get the steer angle and velocity for the wheel from NetworkTables
+            let mut angle = 360.0 - inst
                 .get_entry(format!("/Thunderstorm/Module{}Angle", module_number).as_str())
                 .get_value()
                 .unwrap()
                 .get_double()
                 .unwrap_or(0.0);
-            let velocity_mps = inst
+            let mut velocity_mps = inst
                 .get_entry(format!("/Thunderstorm/Module{}Velocity", module_number).as_str())
                 .get_value()
                 .unwrap()
                 .get_double()
                 .unwrap_or(0.0);
+
+            // SwerveModuleState::optimize()
+            let last_angle = last_angles[module_number];
+            let delta = angle - last_angle;
+
+            if delta > 90.0 {
+                velocity_mps = -velocity_mps;
+                angle += 180.0;
+            }
+            
             let location = MODULE_LOCATIONS[module_number];
             // Render the wheel.
             let wheel_src = Rect::new(0, 0, wheel_image.query().width, wheel_image.query().height);
@@ -153,13 +164,10 @@ fn main() {
                 .unwrap();
             if velocity_mps != 0.0_f64 {
                 let mut magnitude = velocity_mps / constants::MAX_SPEED * 100.0;
-                if angle >= 90.0 {
-                    magnitude = -magnitude;
-                }
                 let src_point = Point::new(location.0, location.1).offset(20, 46);
                 let dst_point = src_point.offset(
-                    (magnitude * angle.to_radians().cos()).round() as i32,
-                    (magnitude * angle.to_radians().sin()).round() as i32,
+                    (magnitude * (angle - 90.0).to_radians().cos()).round() as i32,
+                    (magnitude * (angle - 90.0).to_radians().sin()).round() as i32,
                 );
                 draw_arrow(&mut canvas, src_point, dst_point, Color::RGB(0, 0, 0));
                 canvas.set_draw_color(Color::RGB(255, 255, 255))
