@@ -1,31 +1,67 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
-use nt::EntryValue;
+// use nt::EntryValue;
 use sdl2::{
     event::Event,
+    gfx::primitives::DrawRenderer,
     image::LoadTexture,
+    pixels::Color,
     rect::{Point, Rect},
+    render::Canvas,
 };
+
+use ::nt::*;
 
 use crate::constants::MODULE_LOCATIONS;
 
 mod constants;
 
-#[tokio::main]
-async fn main() {
-    let client = if constants::SIMULATION {
-        nt::NetworkTables::connect("127.0.0.1:1735", "thunderstorm")
-            .await
-            .expect("Failed to connect to NetworkTables, check if the simulator is running...")
-    } else {
-        nt::NetworkTables::connect("10.50.9.2:1735", "thunderstorm")
-            .await
-            .expect("Failed to connect to NetworkTables, check if the robot is on...")
-    };
+fn draw_arrow<T>(canvas: &mut Canvas<T>, start: Point, end: Point, color: Color)
+where
+    T: sdl2::render::RenderTarget,
+{
+    let dx = (end.x - start.x) as f64;
+    let dy = (end.y - start.y) as f64;
+    let angle = dy.atan2(dx);
+    // let length = (dx * dx + dy * dy).sqrt() as i32;
 
-    client.add_connection_callback(nt::ConnectionCallbackType::ClientDisconnected, |_| {
-        println!("Client has disconnected from the server");
-    });
+    let arrow_width = 10;
+    let arrow_length = 20;
+    let arrow_tip = Point::new(
+        end.x - (arrow_length as f64 * angle.cos()) as i32,
+        end.y - (arrow_length as f64 * angle.sin()) as i32,
+    );
+    let arrow_left = Point::new(
+        arrow_tip.x + (arrow_width as f64 * (angle + std::f64::consts::PI / 6.0).cos()) as i32,
+        arrow_tip.y + (arrow_width as f64 * (angle + std::f64::consts::PI / 6.0).sin()) as i32,
+    );
+    let arrow_right = Point::new(
+        arrow_tip.x + (arrow_width as f64 * (angle - std::f64::consts::PI / 6.0).cos()) as i32,
+        arrow_tip.y + (arrow_width as f64 * (angle - std::f64::consts::PI / 6.0).sin()) as i32,
+    );
+    canvas.draw_line(start, end).unwrap();
+    canvas
+        .filled_trigon(
+            arrow_left.x() as _,
+            arrow_left.y() as _,
+            arrow_right.x() as _,
+            arrow_right.y() as _,
+            arrow_tip.x() as _,
+            arrow_tip.y() as _,
+            color,
+        )
+        .unwrap();
+}
+
+fn main() {
+    let mut inst = nt::NetworkTableInstance::get_default();
+    inst.start_client_3("Thunderstorm");
+    if !constants::SIMULATION {
+        inst.set_server_team(509, 1735);
+    } else {
+        inst.set_server("127.0.0.1", 1735);
+    }
+    inst.start_driver_station_client(1735);
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -44,7 +80,7 @@ async fn main() {
         .map_err(|e| e.to_string())
         .unwrap();
 
-    canvas.set_draw_color(sdl2::pixels::Color::RGB(255, 255, 255));
+    canvas.set_draw_color(Color::RGB(255, 255, 255));
     canvas.clear();
     canvas.present();
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -53,15 +89,13 @@ async fn main() {
     let chassis_image = texture_creator.load_texture("chassis.png").unwrap();
     let wheel_image = texture_creator.load_texture("wheel.png").unwrap();
 
-    let mut map = HashMap::new();
-
-    let src_rect = Rect::new(
+    let chassis_src = Rect::new(
         0,
         0,
         chassis_image.query().width,
         chassis_image.query().height,
     );
-    let dst_rect = Rect::new(100, 0, src_rect.width(), src_rect.height());
+    let chassis_dst = Rect::new(100, 0, chassis_src.width(), chassis_src.height());
 
     'running: loop {
         // SDL2 Event handler.
@@ -78,44 +112,58 @@ async fn main() {
             }
         }
 
-        // Collect data from NetworkTables.
-        for (id, data) in client.entries() {
-            if data.name.starts_with("/Thunderstorm") {
-                match data.value {
-                    EntryValue::Double(value) => {
-                        map.entry(data.name).or_insert(value);
-                    }
-                    _ => {}
-                }
-            }
-        }
-
         canvas.clear();
-        canvas.copy(&chassis_image, src_rect, dst_rect).unwrap();
+        canvas
+            .copy(&chassis_image, chassis_src, chassis_dst)
+            .unwrap();
         for module_number in 0..4 {
-            // Get the steer angle for the wheel.
-            let angle = *map
-                .get(format!("/Thunderstorm/Module{}Angle", module_number).as_str())
-                .unwrap_or(&45.0_f64);
+            // Get the steer angle and velocity for the wheel.
+            let angle = 360.0 - inst
+                .get_entry(format!("/Thunderstorm/Module{}Angle", module_number).as_str())
+                .get_value()
+                .unwrap()
+                .get_double()
+                .unwrap_or(0.0);
+            let velocity_mps = inst
+                .get_entry(format!("/Thunderstorm/Module{}Velocity", module_number).as_str())
+                .get_value()
+                .unwrap()
+                .get_double()
+                .unwrap_or(0.0);
             let location = MODULE_LOCATIONS[module_number];
-            // Define the source and destination rectangles
-            let src_rect = Rect::new(0, 0, wheel_image.query().width, wheel_image.query().height);
-            let dst_rect = Rect::new(location.0, location.1, src_rect.width(), src_rect.height());
-
-            let center = Point::new(dst_rect.width() as i32 / 2, dst_rect.height() as i32 / 2);
-
-            // Render the image texture at the angle
+            // Render the wheel.
+            let wheel_src = Rect::new(0, 0, wheel_image.query().width, wheel_image.query().height);
+            let wheel_dst = Rect::new(
+                location.0,
+                location.1,
+                wheel_src.width(),
+                wheel_src.height(),
+            );
+            let center = Point::new(wheel_dst.width() as i32 / 2, wheel_dst.height() as i32 / 2);
             canvas
                 .copy_ex(
                     &wheel_image,
-                    Some(src_rect),
-                    Some(dst_rect),
+                    Some(wheel_src),
+                    Some(wheel_dst),
                     angle,
                     center,
                     false,
                     false,
                 )
                 .unwrap();
+            if velocity_mps != 0.0_f64 {
+                let mut magnitude = velocity_mps / constants::MAX_SPEED * 100.0;
+                if angle >= 90.0 {
+                    magnitude = -magnitude;
+                }
+                let src_point = Point::new(location.0, location.1).offset(20, 46);
+                let dst_point = src_point.offset(
+                    (magnitude * angle.to_radians().cos()).round() as i32,
+                    (magnitude * angle.to_radians().sin()).round() as i32,
+                );
+                draw_arrow(&mut canvas, src_point, dst_point, Color::RGB(0, 0, 0));
+                canvas.set_draw_color(Color::RGB(255, 255, 255))
+            }
         }
         canvas.present();
     }
