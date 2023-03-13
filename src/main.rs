@@ -123,7 +123,7 @@ fn main() {
                 .unwrap()
                 .get_double()
                 .unwrap_or(0.0);
-            let mut velocity_mps = inst
+            let mut velocity_mps = -inst
                 .get_entry(format!("/Thunderstorm/Module{}Velocity", module_number).as_str())
                 .get_value()
                 .unwrap()
