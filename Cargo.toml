@@ -6,11 +6,12 @@ edition = "2021"
 [dependencies]
 nt = { git = "https://github.com/itsmeft24/nt-wrapper" }
 tokio = { version = "1.26.0", features = ["full"] }
+nalgebra = "0.31.3"
 
 [dependencies.sdl2]
 version = "0.35"
 default-features = false
-features = ["image","gfx","static-link","use-vcpkg"]
+features = ["image","gfx","static-link","use-vcpkg","unsafe_textures"]
 
 [package.metadata.vcpkg]
 dependencies = ["sdl2", "sdl2-image[libjpeg-turbo,tiff,libwebp]", "sdl2-gfx"]
