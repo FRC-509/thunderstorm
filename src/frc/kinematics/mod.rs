@@ -67,7 +67,7 @@ impl ChassisSpeeds {
 
 pub struct SwerveDriveKinematics {
     inverse_kinematics: nalgebra::DMatrix<f64>,
-    forward_kinematics: nalgebra::QR<f64, Dynamic, Dynamic>,
+    forward_kinematics: nalgebra::SVD<f64, Dynamic, Dynamic>,
     modules: [Vector2<f64>; 4],
     module_states: [SwerveModuleState; 4],
     previous_center_of_rotation: Vector2<f64>,
@@ -88,7 +88,7 @@ impl SwerveDriveKinematics {
                     (wheels[i].x).into(),
                 ));
         }
-        let forward_kinematics = inverse_kinematics.clone().qr();
+        let forward_kinematics = inverse_kinematics.clone().svd(true, true);
         Self {
             inverse_kinematics: inverse_kinematics,
             forward_kinematics: forward_kinematics,
@@ -170,10 +170,13 @@ impl SwerveDriveKinematics {
             *module_state_matrix.get_mut((i * 2 + 1, 0)).unwrap() =
                 module_states[i].speed * module_states[i].angle.y;
         }
-        let chassis_speeds_vector = self.forward_kinematics.solve(&module_state_matrix).unwrap();
+        let chassis_speeds_vector = self
+            .forward_kinematics
+            .solve(&module_state_matrix, 0.0)
+            .unwrap();
         ChassisSpeeds::new(
-            *chassis_speeds_vector.get(0).unwrap(),
             *chassis_speeds_vector.get(1).unwrap(),
+            *chassis_speeds_vector.get(0).unwrap(),
             *chassis_speeds_vector.get(2).unwrap(),
         )
     }

@@ -1,13 +1,11 @@
+use std::time::Duration;
 
 use layer::Layer;
+use layers::arm;
 use layers::drive;
 
-use sdl2::{
-    event::Event,
-    pixels::Color,
-};
-
-use ::nt::*;
+use sdl2::rect::Point;
+use sdl2::{event::Event, pixels::Color};
 
 mod constants;
 mod frc;
@@ -24,11 +22,18 @@ fn main() {
     }
     inst.start_driver_station_client(1735);
 
+    std::thread::sleep(Duration::from_secs(1));
+
+    if !inst.is_connected() {
+        println!("Failed to connect to NetworkTables, check if the robot is on or if the simulator is running!");
+        return;
+    }
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem
-        .window("Thunderstorm Interface", 800, 600)
+        .window("Thunderstorm Interface", 1280, 720)
         .position_centered()
         .opengl()
         .build()
@@ -47,7 +52,8 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
     let texture_creator = canvas.texture_creator();
 
-    let mut drive_layer = drive::Drive::create(&texture_creator);
+    let mut drive_layer = drive::Drive::create(&texture_creator, Point::new(580, 120));
+    let mut operator_layer = arm::Arm::create(&texture_creator, Point::new(47, 274));
 
     'running: loop {
         // SDL2 Event handler.
@@ -65,7 +71,9 @@ fn main() {
         }
 
         canvas.clear();
+        operator_layer.render(&mut canvas, &inst);
         drive_layer.render(&mut canvas, &inst);
         canvas.present();
+        std::thread::sleep(Duration::from_millis(16));
     }
 }

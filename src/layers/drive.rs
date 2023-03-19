@@ -1,11 +1,12 @@
 use nalgebra::Vector2;
 use sdl2::{
+    gfx::primitives::DrawRenderer,
     image::LoadTexture,
     pixels::Color,
     rect::{Point, Rect},
-    render::{Texture, TextureCreator, Canvas}, video::{WindowContext, Window}, gfx::primitives::DrawRenderer,
+    render::{Canvas, Texture, TextureCreator},
+    video::{Window, WindowContext},
 };
-use ::nt::*;
 
 use crate::{
     constants,
@@ -14,13 +15,12 @@ use crate::{
 };
 
 pub struct Drive {
+    origin: Point,
     chassis_image: Texture,
     wheel_image: Texture,
-    last_angles: [f64; 4],
     swerve_kinematics: SwerveDriveKinematics,
     module_states: [SwerveModuleState; 4],
 }
-
 
 fn draw_vector<T>(canvas: &mut Canvas<T>, start: Point, end: Point, color: Color)
 where
@@ -61,11 +61,9 @@ where
 }
 
 impl Layer for Drive {
-    fn create(texture_creator: &TextureCreator<WindowContext>) -> Self {
+    fn create(texture_creator: &TextureCreator<WindowContext>, origin: Point) -> Self {
         let chassis_image = texture_creator.load_texture("chassis.png").unwrap();
         let wheel_image = texture_creator.load_texture("wheel.png").unwrap();
-
-        let last_angles = [0.0, 0.0, 0.0, 0.0];
 
         let swerve_kinematics = SwerveDriveKinematics::new([
             // Front Left
@@ -98,26 +96,23 @@ impl Layer for Drive {
         ];
 
         Self {
+            origin,
             chassis_image,
             wheel_image,
-            last_angles,
             swerve_kinematics,
             module_states,
         }
     }
 
-    fn render(
-        &mut self,
-        canvas: &mut Canvas<Window>,
-        inst: &nt::NetworkTableInstance,
-    ) {
+    fn render(&mut self, canvas: &mut Canvas<Window>, inst: &nt::NetworkTableInstance) {
         let chassis_src = Rect::new(
             0,
             0,
             self.chassis_image.query().width,
             self.chassis_image.query().height,
         );
-        let chassis_dst = Rect::new(100, 0, chassis_src.width(), chassis_src.height());
+        let mut chassis_dst = Rect::new(100, 0, chassis_src.width(), chassis_src.height());
+        chassis_dst.offset(self.origin.x(),  self.origin.y());
         canvas
             .copy(&self.chassis_image, chassis_src, chassis_dst)
             .unwrap();
@@ -144,16 +139,11 @@ impl Layer for Drive {
             angle = 360.0 - angle;
             velocity_mps = -velocity_mps;
 
-            // SwerveModuleState::optimize()
-            let delta = angle - self.last_angles[module_number];
+            let location = Point::new(
+                constants::MODULE_PIXEL_LOCATIONS[module_number].0 + self.origin.x(),
+                constants::MODULE_PIXEL_LOCATIONS[module_number].1 + self.origin.y(),
+            );
 
-            if delta > 90.0 {
-                velocity_mps = -velocity_mps;
-                angle += 180.0;
-            }
-            self.last_angles[module_number] = angle;
-
-            let location = constants::MODULE_PIXEL_LOCATIONS[module_number];
             // Render the wheel.
             let wheel_src = Rect::new(
                 0,
@@ -162,8 +152,8 @@ impl Layer for Drive {
                 self.wheel_image.query().height,
             );
             let wheel_dst = Rect::new(
-                location.0,
-                location.1,
+                location.x(),
+                location.y(),
                 wheel_src.width(),
                 wheel_src.height(),
             );
@@ -181,7 +171,7 @@ impl Layer for Drive {
                 .unwrap();
             if velocity_mps != 0.0_f64 {
                 let magnitude = velocity_mps / constants::MAX_SPEED * 100.0;
-                let src_point = Point::new(location.0, location.1).offset(20, 46);
+                let src_point = Point::new(location.x(), location.y()).offset(20, 46);
                 let dst_point = src_point.offset(
                     (magnitude * (angle - 90.0).to_radians().cos()).round() as i32,
                     (magnitude * (angle - 90.0).to_radians().sin()).round() as i32,
@@ -195,7 +185,7 @@ impl Layer for Drive {
             .swerve_kinematics
             .to_chassis_speeds(&self.module_states);
 
-        let center_robot = Point::new(300, 400);
+        let center_robot = Point::new(self.origin.x() + 400, self.origin.y() + 300);
         let robot_vector_end = center_robot.offset(
             (chassis_speeds.vx_mps / constants::MAX_SPEED * 100.0).round() as i32,
             (chassis_speeds.vy_mps / constants::MAX_SPEED * 100.0).round() as i32,
