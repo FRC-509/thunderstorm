@@ -42,7 +42,7 @@ impl Layer for Arm {
             .get_value()
             .unwrap()
             .get_double()
-            .unwrap_or(0.0);
+            .unwrap_or(0.0) - 90.0;
         let extension_sensor_units = inst
             .get_entry("/Thunderstorm/ArmExtension")
             .get_value()
