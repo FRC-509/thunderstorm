@@ -144,7 +144,7 @@ dependencies = [
 [[package]]
 name = "nt"
 version = "0.1.0"
-source = "git+https://github.com/itsmeft24/nt-wrapper#0b64215db21315aa8dfda77319cb5eba10ba153a"
+source = "git+https://github.com/itsmeft24/nt-wrapper#0a68d4739fb06d0646aa7950d523c9e980866f9f"
 
 [[package]]
 name = "num-complex"

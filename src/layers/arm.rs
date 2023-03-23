@@ -11,9 +11,12 @@ pub struct Arm {
     robot_image: Texture,
     claw_image: Texture,
     arm_image: Texture,
+    red_bumper_image: Texture,
+    blue_bumper_image: Texture,
     robot_src: Rect,
     claw_src: Rect,
     arm_src: Rect,
+    bumper_src: Rect,
 }
 
 impl Layer for Arm {
@@ -21,17 +24,23 @@ impl Layer for Arm {
         let robot_image = texture_creator.load_texture("robot.png").unwrap();
         let claw_image = texture_creator.load_texture("claw.png").unwrap();
         let arm_image = texture_creator.load_texture("arm.png").unwrap();
+        let red_bumper_image = texture_creator.load_texture("red_bumper.png").unwrap();
+        let blue_bumper_image = texture_creator.load_texture("blue_bumper.png").unwrap();
         let robot_src = Rect::new(0, 0, robot_image.query().width, robot_image.query().height);
         let claw_src = Rect::new(0, 0, claw_image.query().width, claw_image.query().height);
         let arm_src = Rect::new(0, 0, arm_image.query().width, arm_image.query().height);
+        let bumper_src = Rect::new(0, 0, red_bumper_image.query().width, red_bumper_image.query().height);
         Self {
             origin,
             robot_image,
             claw_image,
             arm_image,
+            red_bumper_image,
+            blue_bumper_image,
             robot_src,
             claw_src,
             arm_src,
+            bumper_src,
         }
     }
 
@@ -49,6 +58,12 @@ impl Layer for Arm {
             .unwrap()
             .get_double()
             .unwrap_or(0.0);
+        let is_red_alliance = inst
+            .get_entry("/FMSInfo/IsRedAlliance")
+            .get_value()
+            .unwrap()
+            .get_boolean()
+            .unwrap_or(true);
 
         // Grab rects and center axes for rendering the arm and end effector.
         let mut arm_dst = Rect::new(220, 32, self.arm_src.width(), self.arm_src.height());
@@ -68,6 +83,9 @@ impl Layer for Arm {
 
         let mut robot_dst = Rect::new(263, 0, self.robot_src.width(), self.robot_src.height());
         robot_dst.offset(self.origin.x(), self.origin.y());
+
+        let mut bumper_dst = Rect::new(263, 315, self.bumper_src.width(), self.bumper_src.height());
+        bumper_dst.offset(self.origin.x(), self.origin.y());
 
         // Render the end effector.
         canvas
@@ -97,5 +115,15 @@ impl Layer for Arm {
         canvas
             .copy(&self.robot_image, self.robot_src, robot_dst)
             .unwrap();
+        // Render the bumper texture.
+        if is_red_alliance {
+            canvas
+            .copy(&self.red_bumper_image, self.bumper_src, bumper_dst)
+            .unwrap();
+        } else {
+            canvas
+            .copy(&self.blue_bumper_image, self.bumper_src, bumper_dst)
+            .unwrap();
+        }
     }
 }
