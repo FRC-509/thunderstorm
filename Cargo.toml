@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 nt = { git = "https://github.com/itsmeft24/nt-wrapper" }
+wpimath = { git = "https://github.com/itsmeft24/wpimath-rs" }
 tokio = { version = "1.26.0", features = ["full"] }
 nalgebra = "0.31.3"
 
