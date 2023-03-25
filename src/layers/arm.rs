@@ -1,4 +1,4 @@
-use crate::{constants, layer::Layer};
+use crate::{constants, layer::Layer, mulr};
 use sdl2::{
     image::LoadTexture,
     rect::{Point, Rect},
@@ -8,6 +8,7 @@ use sdl2::{
 
 pub struct Arm {
     origin: Point,
+    scale: f64,
     robot_image: Texture,
     claw_image: Texture,
     arm_image: Texture,
@@ -20,7 +21,7 @@ pub struct Arm {
 }
 
 impl Layer for Arm {
-    fn create(texture_creator: &TextureCreator<WindowContext>, origin: Point) -> Self {
+    fn create(texture_creator: &TextureCreator<WindowContext>, origin: Point, scale: f64) -> Self {
         let robot_image = texture_creator.load_texture("robot.png").unwrap();
         let claw_image = texture_creator.load_texture("claw.png").unwrap();
         let arm_image = texture_creator.load_texture("arm.png").unwrap();
@@ -29,9 +30,15 @@ impl Layer for Arm {
         let robot_src = Rect::new(0, 0, robot_image.query().width, robot_image.query().height);
         let claw_src = Rect::new(0, 0, claw_image.query().width, claw_image.query().height);
         let arm_src = Rect::new(0, 0, arm_image.query().width, arm_image.query().height);
-        let bumper_src = Rect::new(0, 0, red_bumper_image.query().width, red_bumper_image.query().height);
+        let bumper_src = Rect::new(
+            0,
+            0,
+            red_bumper_image.query().width,
+            red_bumper_image.query().height,
+        );
         Self {
-            origin,
+            origin: Point::new(mulr!(origin.x(), scale), mulr!(origin.y(), scale)),
+            scale,
             robot_image,
             claw_image,
             arm_image,
@@ -51,7 +58,8 @@ impl Layer for Arm {
             .get_value()
             .unwrap()
             .get_double()
-            .unwrap_or(0.0) - 90.0;
+            .unwrap_or(0.0)
+            - 90.0;
         let extension_sensor_units = inst
             .get_entry("/Thunderstorm/ArmExtension")
             .get_value()
@@ -66,25 +74,46 @@ impl Layer for Arm {
             .unwrap_or(true);
 
         // Grab rects and center axes for rendering the arm and end effector.
-        let mut arm_dst = Rect::new(220, 32, self.arm_src.width(), self.arm_src.height());
+        let mut arm_dst = Rect::new(
+            mulr!(220, self.scale),
+            mulr!(32, self.scale),
+            mulr!(self.arm_src.width(), self.scale) as u32,
+            mulr!(self.arm_src.height(), self.scale) as u32,
+        );
         arm_dst.offset(self.origin.x(), self.origin.y());
-        let cor_arm = Point::new(409 + self.origin.x(), 28 + self.origin.y()) - arm_dst.top_left();
+        let cor_arm = Point::new(
+            mulr!(409, self.scale) + self.origin.x(),
+            mulr!(28, self.scale) + self.origin.y(),
+        ) - arm_dst.top_left();
         // Convert the extension from sensor units into pixels.
         let extension_pixels =
             (extension_sensor_units / constants::MAX_EXTENSION * 158.0).round() as i32;
         let mut claw_dst = Rect::new(
-            158 - extension_pixels,
-            19,
-            self.claw_src.width(),
-            self.claw_src.height(),
+            mulr!(158 - extension_pixels, self.scale),
+            mulr!(19, self.scale),
+            mulr!(self.claw_src.width(), self.scale) as u32,
+            mulr!(self.claw_src.height(), self.scale) as u32,
         );
         claw_dst.offset(self.origin.x(), self.origin.y());
-        let cor_claw = Point::new(409 + self.origin.x(), 28 + self.origin.y()) - claw_dst.top_left();
+        let cor_claw = Point::new(
+            mulr!(409, self.scale) + self.origin.x(),
+            mulr!(28, self.scale) + self.origin.y(),
+        ) - claw_dst.top_left();
 
-        let mut robot_dst = Rect::new(263, 0, self.robot_src.width(), self.robot_src.height());
+        let mut robot_dst = Rect::new(
+            mulr!(263, self.scale),
+            mulr!(0, self.scale),
+            mulr!(self.robot_src.width(), self.scale) as u32,
+            mulr!(self.robot_src.height(), self.scale) as u32,
+        );
         robot_dst.offset(self.origin.x(), self.origin.y());
 
-        let mut bumper_dst = Rect::new(263, 315, self.bumper_src.width(), self.bumper_src.height());
+        let mut bumper_dst = Rect::new(
+            mulr!(263, self.scale),
+            mulr!(315, self.scale),
+            mulr!(self.bumper_src.width(), self.scale) as u32,
+            mulr!(self.bumper_src.height(), self.scale) as u32,
+        );
         bumper_dst.offset(self.origin.x(), self.origin.y());
 
         // Render the end effector.
@@ -118,12 +147,12 @@ impl Layer for Arm {
         // Render the bumper texture.
         if is_red_alliance {
             canvas
-            .copy(&self.red_bumper_image, self.bumper_src, bumper_dst)
-            .unwrap();
+                .copy(&self.red_bumper_image, self.bumper_src, bumper_dst)
+                .unwrap();
         } else {
             canvas
-            .copy(&self.blue_bumper_image, self.bumper_src, bumper_dst)
-            .unwrap();
+                .copy(&self.blue_bumper_image, self.bumper_src, bumper_dst)
+                .unwrap();
         }
     }
 }

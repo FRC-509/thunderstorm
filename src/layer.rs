@@ -5,6 +5,6 @@ use sdl2::{
 };
 
 pub trait Layer {
-    fn create(texture_creator: &TextureCreator<WindowContext>, origin: Point) -> Self;
+    fn create(texture_creator: &TextureCreator<WindowContext>, origin: Point, scale: f64) -> Self;
     fn render(&mut self, canvas: &mut Canvas<Window>, inst: &nt::NetworkTableInstance);
 }

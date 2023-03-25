@@ -525,7 +525,7 @@ checksum = "9aec5da331524158c6d1a4ac0ab1541149c0b9505fde06423b02f5ef0106b9f0"
 [[package]]
 name = "wpimath"
 version = "0.1.0"
-source = "git+https://github.com/itsmeft24/wpimath-rs#c024c25bff7f238258b1be1e794f6da2b2f2cbcd"
+source = "git+https://github.com/itsmeft24/wpimath-rs#15162f772113c8224dea3f81e0d2867c5ef12c09"
 dependencies = [
  "nalgebra",
 ]

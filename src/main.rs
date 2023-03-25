@@ -3,8 +3,6 @@
 use std::time::Duration;
 
 use layer::Layer;
-use layers::arm;
-use layers::drive;
 
 use sdl2::rect::Point;
 use sdl2::{event::Event, pixels::Color};
@@ -35,7 +33,7 @@ fn main() {
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem
-        .window("Thunderstorm Interface", 1280, 720)
+        .window("Thunderstorm Interface", 640, 360)
         .position_centered()
         .opengl()
         .build()
@@ -54,8 +52,8 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
     let texture_creator = canvas.texture_creator();
 
-    let mut drive_layer = drive::Drive::create(&texture_creator, Point::new(580, 120));
-    let mut operator_layer = arm::Arm::create(&texture_creator, Point::new(47, 274));
+    let mut drive_layer = layers::Drive::create(&texture_creator, Point::new(580, 120), 0.5);
+    let mut operator_layer = layers::Arm::create(&texture_creator, Point::new(47, 274), 0.5);
 
     'running: loop {
         // SDL2 Event handler.
